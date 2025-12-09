@@ -24,6 +24,20 @@
         <link rel="stylesheet" type="text/css" href="css/commtest.css">
         <link rel="stylesheet" type="text/css" href="css/app.css">
     </head>
+    <script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/sw.js')
+                .then(reg => {
+                    console.log('Service Worker registered:', reg);
+                })
+                .catch(err => {
+                    console.error('SW registration failed:', err);
+                });
+        });
+    }
+</script>
+
     <body ng-controller="ConnectController as connect">
         <loading-mask ng-class="{loaded:true,ready:connect.ready}"></loading-mask>
         <commtest></commtest>
