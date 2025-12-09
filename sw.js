@@ -1,3 +1,4 @@
+const CACHE_NAME = "v1";
 const FILES_TO_CACHE = [
     "/",
     "manifest.json",
@@ -136,45 +137,40 @@ const FILES_TO_CACHE = [
     "js/image-utilities.js",
 ];
 
-    self.addEventListener('activate', event => {
-    event.waitUntil(
-        caches.keys().then(cacheNames => {
-        return Promise.all(
-            cacheNames.map(cacheName => caches.delete(cacheName))
-        );
-        })
-    );
-    })
+// Install: pre-cache
+self.addEventListener("install", event => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then(cache => cache.addAll(FILES_TO_CACHE))
+  );
+});
 
-    self.addEventListener('install', event => {
-    event.waitUntil(
-        caches.open('v1')
-        .then(cache => cache.addAll(FILES_TO_CACHE))
-    );
-    });
+// Activate: clean old caches
+self.addEventListener("activate", event => {
+  event.waitUntil(
+    caches.keys().then(keys =>
+      Promise.all(keys.map(key => key !== CACHE_NAME && caches.delete(key)))
+    )
+  );
+});
 
-    self.addEventListener("fetch", event => {
-    event.respondWith(
-        caches.match(event.request).then(async response => {
-        let response2;
-        if(navigator.onLine) {
-            response2 = fetch(event.request).then(response => {
-            let statuscode = response.status;
-            if(statuscode == 200) {
-                caches.open('v1').then(cache => {
-                    cache.put(event.request, response.clone());
-                });
-            }
-            return response.clone();
+// Fetch handler
+self.addEventListener("fetch", event => {
+  event.respondWith(
+    caches.match(event.request).then(cached => {
+      // Try network, update cache, but fallback to cache on failure
+      const fetchAttempt = fetch(event.request)
+        .then(networkResponse => {
+          if (networkResponse.status === 200) {
+            caches.open(CACHE_NAME).then(cache => {
+              cache.put(event.request, networkResponse.clone());
             });
-        }
-        if(response) {
-            return response;
-        } else {
-            return await response2;
-        }
+          }
+          return networkResponse.clone();
         })
-    );
-    });
+        .catch(() => cached);
 
-    
+      // If cached exists → return it first (fast)
+      return cached || fetchAttempt;
+    })
+  );
+});
